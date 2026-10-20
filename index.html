@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplikasi Kasir Kustom Usaha</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body { background-color: #f4f7fe; color: #2b3674; display: flex; height: 100vh; overflow: hidden; }
+
+    /* Layout Utama Kasir */
+    .pos-container { display: flex; width: 100%; height: 100%; }
+    .product-section { flex: 7; padding: 24px; overflow-y: auto; border-right: 1px solid #e2e8f0; }
+    .cart-section { flex: 4; background: #ffffff; padding: 24px; display: flex; flex-direction: column; box-shadow: -5px 0 25px rgba(0,0,0,0.05); }
+
+    h1 { font-size: 22px; font-weight: 700; color: #1b2559; margin-bottom: 6px; }
+    p.subtitle { font-size: 13px; color: #707ebe; margin-bottom: 20px; }
+
+    /* Grid Katalog Produk */
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+    .product-card {
+      background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;
+      cursor: pointer; transition: all 0.2s ease; text-align: center;
+      box-shadow: 0px 4px 12px rgba(112, 144, 176, 0.08);
+    }
+    .product-card:hover { transform: translateY(-3px); border-color: #4318FF; box-shadow: 0px 8px 20px rgba(67, 24, 255, 0.15); }
+    .product-card h3 { font-size: 14px; font-weight: 600; color: #2b3674; margin-bottom: 8px; }
+    .product-card .price { font-size: 13px; font-weight: 700; color: #05cd99; }
+
+    /* Keranjang Belanja */
+    .cart-title { font-size: 16px; font-weight: 700; color: #1b2559; margin-bottom: 16px; border-bottom: 1px solid #f4f7fe; padding-bottom: 10px; }
+    .cart-items { flex: 1; overflow-y: auto; margin-bottom: 16px; max-height: 40vh; }
+    
+    .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; background: #f8fafc; padding: 10px; border-radius: 8px; }
+    .cart-item-info div:first-child { font-weight: 600; color: #2b3674; }
+    .cart-item-info div:last-child { font-size: 11px; color: #707ebe; }
+    
+    .cart-item-controls { display: flex; align-items: center; gap: 8px; }
+    .cart-item-controls button { background: #e0e5f2; border: none; width: 22px; height: 22px; border-radius: 4px; font-weight: bold; cursor: pointer; color: #4318FF; }
+
+    /* Summary & Pembayaran */
+    .summary-box { border-top: 1px solid #e2e8f0; padding-top: 14px; margin-bottom: 16px; }
+    .summary-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; font-weight: 600; }
+    .summary-row.total { font-size: 18px; color: #1b2559; font-weight: 700; }
+
+    .payment-group { margin-bottom: 16px; }
+    .payment-group label { font-size: 12px; font-weight: 600; color: #707ebe; display: block; margin-bottom: 4px; }
+    .payment-group input { width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; outline: none; }
+
+    .btn-checkout {
+      background: #4318FF; color: #ffffff; border: none; width: 100%; padding: 14px;
+      border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-checkout:hover { background: #3311cc; }
+
+    /* DESAIN STRUK BELANJA */
+    #receiptPrint { display: none; }
+    @media print {
+      body * { visibility: hidden; }
+      #receiptPrint, #receiptPrint * { visibility: visible; }
+      #receiptPrint {
+        display: block !important;
+        position: absolute;
+        left: 0; top: 0; width: 58mm;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 12px;
+        color: #000;
+        padding: 5px;
+      }
+      .receipt-header { text-align: center; margin-bottom: 10px; }
+      .receipt-header h2 { font-size: 14px; font-weight: bold; }
+      .receipt-line { border-bottom: 1px dashed #000; margin: 5px 0; }
+      .receipt-item { display: flex; justify-content: space-between; margin-bottom: 3px; }
+      .receipt-footer { text-align: center; margin-top: 10px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="pos-container">
+    <div class="product-section">
+      <h1>Katalog Produk Usaha</h1>
+      <p class="subtitle">Klik produk di bawah untuk memasukkannya ke transaksi</p>
+      <div class="product-grid" id="productGrid"></div>
+    </div>
+
+    <div class="cart-section">
+      <div class="cart-title">Keranjang Belanja</div>
+      <div class="cart-items" id="cartItems">
+        <p style="font-size: 13px; color: #a3aed0; text-align: center; margin-top: 20px;">Keranjang masih kosong</p>
+      </div>
+
+      <div class="summary-box">
+        <div class="summary-row">
+          <span>Subtotal</span>
+          <span id="subtotalText">Rp 0</span>
+        </div>
+        <div class="summary-row total">
+          <span>Total</span>
+          <span id="totalText">Rp 0</span>
+        </div>
+      </div>
+
+      <div class="payment-group">
+        <label>Uang Tunai Pembeli (Rp)</label>
+        <input type="number" id="cashInput" placeholder="Masukkan nominal uang..." oninput="hitungKembalian()">
+      </div>
+
+      <div class="summary-row" style="margin-bottom: 16px; font-size: 13px;">
+        <span>Kembalian:</span>
+        <span id="changeText" style="color: #05cd99; font-weight: 700;">Rp 0</span>
+      </div>
+
+      <button class="btn-checkout" id="btnProses" onclick="prosesTransaksi()">Proses & Cetak Struk</button>
+    </div>
+  </div>
+
+  <div id="receiptPrint">
+    <div class="receipt-header">
+      <h2 id="receiptShopName">KEDAI USAHA KITA</h2>
+      <p id="receiptDate">00/00/0000 00:00</p>
+    </div>
+    <div class="receipt-line"></div>
+    <div id="receiptItemList"></div>
+    <div class="receipt-line"></div>
+    <div class="receipt-item"><span>Total:</span><span id="receiptTotal">Rp 0</span></div>
+    <div class="receipt-item"><span>Tunai:</span><span id="receiptCash">Rp 0</span></div>
+    <div class="receipt-item"><span>Kembali:</span><span id="receiptChange">Rp 0</span></div>
+    <div class="receipt-line"></div>
+    <div class="receipt-footer">
+      <p>Terima Kasih Atas Kunjungan Anda!</p>
+    </div>
+  </div>
+
+  <script>
+    const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbz3skJqOYUSbNazYA2raYAhmEF4C5AzyQcl6lagVmVqzshEmgwmTYjR_Ne1PAEDXjrn/exec";
+
+    const products = [
+      { id: 1, name: "Kopi Susu Gula Aren", price: 18000 },
+      { id: 2, name: "Americano Ice", price: 15000 },
+      { id: 3, name: "Croissant Butter", price: 22000 },
+      { id: 4, name: "Roti Bakar Coklat", price: 12000 },
+      { id: 5, name: "Nasi Goreng Spesial", price: 25000 },
+      { id: 6, name: "Mie Goreng Tek-Tek", price: 20000 },
+      { id: 7, name: "Es Teh Manis", price: 5000 },
+      { id: 8, name: "Air Mineral 600ml", price: 4000 }
+    ];
+
+    let cart = [];
+
+    function formatRupiah(angka) {
+      return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(angka);
+    }
+
+    function renderProducts() {
+      const grid = document.getElementById('productGrid');
+      grid.innerHTML = '';
+      products.forEach(p => {
+        grid.innerHTML += `
+          <div class="product-card" onclick="tambahKeKeranjang(${p.id})">
+            <h3>${p.name}</h3>
+            <div class="price">${formatRupiah(p.price)}</div>
+          </div>
+        `;
+      });
+    }
+
+    function tambahKeKeranjang(id) {
+      const product = products.find(p => p.id === id);
+      const existing = cart.find(item => item.id === id);
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        cart.push({ ...product, qty: 1 });
+      }
+      updateCart();
+    }
+
+    function ubahQty(id, delta) {
+      const item = cart.find(i => i.id === id);
+      if (item) {
+        item.qty += delta;
+        if (item.qty <= 0) {
+          cart = cart.filter(i => i.id !== id);
+        }
+      }
+      updateCart();
+    }
+
+    function updateCart() {
+      const container = document.getElementById('cartItems');
+      const subtotalText = document.getElementById('subtotalText');
+      const totalText = document.getElementById('totalText');
+
+      if (cart.length === 0) {
+        container.innerHTML = `<p style="font-size: 13px; color: #a3aed0; text-align: center; margin-top: 20px;">Keranjang masih kosong</p>`;
+        subtotalText.innerText = formatRupiah(0);
+        totalText.innerText = formatRupiah(0);
+        document.getElementById('changeText').innerText = formatRupiah(0);
+        return;
+      }
+
+      container.innerHTML = '';
+      let total = 0;
+
+      cart.forEach(item => {
+        const itemTotal = item.price * item.qty;
+        total += itemTotal;
+
+        container.innerHTML += `
+          <div class="cart-item">
+            <div class="cart-item-info">
+              <div>${item.name}</div>
+              <div>${formatRupiah(item.price)} x ${item.qty}</div>
+            </div>
+            <div class="cart-item-controls">
+              <button onclick="ubahQty(${item.id}, -1)">-</button>
+              <span>${item.qty}</span>
+              <button onclick="ubahQty(${item.id}, 1)">+</button>
+            </div>
+          </div>
+        `;
+      });
+
+      subtotalText.innerText = formatRupiah(total);
+      totalText.innerText = formatRupiah(total);
+      hitungKembalian();
+    }
+
+    function hitungKembalian() {
+      const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+      const cash = parseFloat(document.getElementById('cashInput').value) || 0;
+      const change = cash - total;
+
+      const changeText = document.getElementById('changeText');
+      if (change >= 0) {
+        changeText.innerText = formatRupiah(change);
+        changeText.style.color = "#05cd99";
+      } else {
+        changeText.innerText = "Uang Kurang " + formatRupiah(Math.abs(change));
+        changeText.style.color = "#ee5d50";
+      }
+    }
+
+    async function prosesTransaksi() {
+  if (cart.length === 0) {
+    alert("Keranjang belanja masih kosong!");
+    return;
+  }
+
+  const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+  const cash = parseFloat(document.getElementById('cashInput').value) || 0;
+
+  if (cash < total) {
+    alert("Uang tunai pembeli belum mencukupi!");
+    return;
+  }
+
+  const btn = document.getElementById('btnProses');
+  btn.innerText = "Memproses & Mengirim Data...";
+  btn.disabled = true;
+
+  const itemSummary = cart.map(i => `${i.name} (${i.qty}x)`).join(", ");
+  const change = cash - total;
+
+  // 1. Data Payload
+  const payload = {
+    items: itemSummary,
+    total: total,
+    cash: cash,
+    change: change
+  };
+
+  // 2. Kirim Data ke Google Sheets dulu sampai tuntas
+  if (GOOGLE_SHEETS_URL) {
+    try {
+      console.log("Mengirim data ke Google Sheets...", payload);
+      
+      // Menggunakan mode no-cors dengan method POST
+      await fetch(GOOGLE_SHEETS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8' // Menggunakan text/plain mencegah CORS preflight
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      console.log("Data berhasil dikirim ke Google Sheets!");
+    } catch (err) {
+      console.error("Gagal mengirim ke Google Sheets:", err);
+      alert("Peringatan: Data gagal terkirim ke Google Sheets, tapi transaksi tetap dilanjutkan.");
+    }
+  }
+
+  // 3. Siapkan Struk
+  const now = new Date();
+  document.getElementById('receiptDate').innerText = now.toLocaleString('id-ID');
+  
+  const receiptItemList = document.getElementById('receiptItemList');
+  receiptItemList.innerHTML = '';
+  cart.forEach(item => {
+    receiptItemList.innerHTML += `
+      <div class="receipt-item">
+        <span>${item.name} x${item.qty}</span>
+        <span>${formatRupiah(item.price * item.qty)}</span>
+      </div>
+    `;
+  });
+
+  document.getElementById('receiptTotal').innerText = formatRupiah(total);
+  document.getElementById('receiptCash').innerText = formatRupiah(cash);
+  document.getElementById('receiptChange').innerText = formatRupiah(change);
+
+  // 4. Baru Panggil Cetak Struk
+  window.print();
+
+  // 5. Reset Keranjang Kasir
+  cart = [];
+  document.getElementById('cashInput').value = '';
+  btn.innerText = "Proses & Cetak Struk";
+  btn.disabled = false;
+  updateCart();
+}
+
+    renderProducts();
+  </script>
+</body>
+</html>
